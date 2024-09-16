@@ -1,5 +1,6 @@
 #include "TerminalBeep.h"
 
 void TerminalBeep::greet() {
-    std::cout << "Hello World" << std::endl;
+    char buf = '\x07';
+    write(1, &buf, sizeof(buf));
 }
