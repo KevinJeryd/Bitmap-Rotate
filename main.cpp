@@ -1,6 +1,10 @@
-#include "lib/TerminalBeep.h"
+#include "lib/BitmapRotate.h"
+#include <fstream>
+#include <iostream>
+#include <vector>
 
 int main() {
-    TerminalBeep::greet();
-    return 0;
+    std::string fileName = "../../image-rotate/teapot.bmp";
+
+    return BitmapRotate::run(fileName);
 }

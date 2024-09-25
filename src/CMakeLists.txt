@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
-project(TerminalBeepLib)
+project(BitmapRotateLib)
 
 set(INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../lib)
-set(SOURCES TerminalBeep.cpp ${INCLUDE_DIR}/TerminalBeep.h)
+set(SOURCES BitmapRotate.cpp ${INCLUDE_DIR}/BitmapRotate.h)
 
 add_library(${PROJECT_NAME} ${SOURCES})
 
