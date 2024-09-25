@@ -18,6 +18,8 @@ void BitmapRotate::readFile(std::ifstream& bitmapFile, std::vector<Byte>& bitmap
     while (bitmapFile.get(byte)) {
         bitmap.push_back(byte);        
     }
+
+    bitmapFile.close();
 }
 
 void BitmapRotate::parseHeader(const std::vector<Byte>& bitmap, BitmapHeader& bh) {
@@ -60,12 +62,20 @@ int BitmapRotate::run(const std::string& fileName) {
         return 1;
     }
 
-    // Data is getting read correctly, very nice
-    for (int i = 0; i < 6; i++) {
-        printf("%x", bitmap[bh.offset + i]);
-        if (i == 2) {
-            std::cout << std::endl;
-        }
+    // Create completely black image test
+    std::ofstream newBmFile;
+    newBmFile.open("../../image-rotate/newBmFile.bmp", std::ios::binary);
+
+    if (!newBmFile.is_open()) {
+        std::cerr << "Failed to create new file" << std::endl;
+    }
+
+    for (int i = 0; i < bh.offset; i++) {
+        newBmFile.put(bitmap[i]);
+    }
+    
+    for (int i = bh.offset; i < bitmap.size(); i++) {
+        newBmFile.put(0x00);
     }
 
     return 0;
