@@ -56,6 +56,20 @@ void BitmapRotate::parseHeader(const std::vector<Byte>& bitmap, BitmapHeader& bh
     printf("\n");
     printf("%x", bh.offset);
     printf("\n");
+
+    // Extract width of image
+    for (int i = 21; i >= 18; i--) {
+        bh.width <<= 8;
+        bh.width |= bitmap[i];
+    }
+
+    // Extract height of image
+    for (int i = 25; i >= 22; i--) {
+        bh.height <<= 8;
+        bh.height |= bitmap[i];
+    }
+
+    printf("%s %u %s %u %s", "Width: ", bh.width, ", Height: ", bh.height, "\n");
 }
 
 int BitmapRotate::run(const std::string& fileName) {
