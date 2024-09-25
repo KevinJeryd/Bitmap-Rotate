@@ -17,12 +17,6 @@ void BitmapRotate::readFile(std::ifstream& bitmapFile, std::vector<Byte>& bitmap
 
     while (bitmapFile.get(byte)) {
         bitmap.push_back(byte);        
-
-        /* // Reading individual bits
-        for (int i = 7; i >= 0; i--) {
-            bitmap.push_back((byte >> i) & 1); // Go through every bit in the byte and store it
-        }
-        */
     }
 }
 
@@ -30,46 +24,27 @@ void BitmapRotate::parseHeader(const std::vector<Byte>& bitmap, BitmapHeader& bh
     bh.headerField[0] = bitmap[0];
     bh.headerField[1] = bitmap[1];
 
-    bh.size = 0;
-    bh.offset = 0;
-
-    for (int i = 5; i >= 2; i--) {  // Gives correct answer now, but doesn't make sense. It's in opposite order of little end
-        printf("%02x", bitmap[i]);
-        bh.size <<= 8;
-        bh.size |=  bitmap[i];
-        printf("%s %x", " ", bh.size);
-        printf("\n");
+    // Extract image size
+    for (int i = 2; i < 6; i++) { 
+        bh.size |= bitmap[i] << 8*(i-2);
     }
 
-
-    printf("%x", bh.size);
-    printf("%s", " ");  // Prints 813ba, but should be ba130800 if little endian imo, how does it read? I thought little endian
-                        // had least significant byte all the way to the left...?
-    printf("%u", bh.size); 
-
-
-    for (int i = 13; i >= 10; i--) {
-        bh.offset <<= 8;
-        bh.offset |= bitmap[i];
+    // Extract where image data starts
+    for (int i = 10; i < 14; i++) {
+        bh.offset |= bitmap[i] << 8*(i-10);
     }
-
-    printf("\n");
-    printf("%x", bh.offset);
-    printf("\n");
 
     // Extract width of image
-    for (int i = 21; i >= 18; i--) {
-        bh.width <<= 8;
-        bh.width |= bitmap[i];
+    for (int i = 18; i < 22; i++) {
+        bh.width |= bitmap[i] << 8*(i-18);
     }
 
     // Extract height of image
-    for (int i = 25; i >= 22; i--) {
-        bh.height <<= 8;
-        bh.height |= bitmap[i];
+    for (int i = 22; i < 26; i++) {
+        bh.height |= bitmap[i] << 8*(i-22);
     }
 
-    printf("%s %u %s %u %s", "Width: ", bh.width, ", Height: ", bh.height, "\n");
+    printf("%s %u %s %u %s %u %s", "Size:", bh.size, ",Width:", bh.width, ",Height:", bh.height, "\n");
 }
 
 int BitmapRotate::run(const std::string& fileName) {
@@ -93,5 +68,6 @@ int BitmapRotate::run(const std::string& fileName) {
         }
     }
 
+    return 0;
 
 }
