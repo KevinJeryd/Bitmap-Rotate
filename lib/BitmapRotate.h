@@ -22,6 +22,8 @@ struct BitmapHeader {
 
 class BitmapRotate {
     private:
+        static int dimensionTransform(std::pair<int, int> coord);
+        static std::pair<int, int> rotatePos(const uint32_t x, const uint32_t y, uint8_t rotation); 
         static std::ifstream openFile(const std::string& filename);
         static void readFile(std::ifstream& bitmapFile, std::vector<Byte>& bitmap);
         static void parseHeader(const std::vector<Byte>& bitmap, BitmapHeader& bh);
