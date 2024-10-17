@@ -46,7 +46,7 @@ class BitmapRotate {
         static std::pair<int, int> rotatePos(const uint32_t x, const uint32_t y, uint8_t rotation); 
         static std::ifstream openFile(const std::string& filename);
         static void readFile(std::ifstream& bitmapFile, std::vector<Byte>& bitmap);
-        static void parseHeader(std::ifstream& bitmap, BITMAPFILEHEADER& fileHeader, BITMAPINFOHEADER& infoHeader);
+        static void parseHeader(const std::string& fileName, BITMAPFILEHEADER& fileHeader, BITMAPINFOHEADER& infoHeader);
     public:
         static int run(const std::string& fileName);
 };

@@ -22,7 +22,9 @@ void BitmapRotate::readFile(std::ifstream& bitmapFile, std::vector<Byte>& bitmap
     bitmapFile.close();
 }
 
-void BitmapRotate::parseHeader(std::ifstream& bitmap, BITMAPFILEHEADER& fileHeader, BITMAPINFOHEADER& infoHeader) {
+void BitmapRotate::parseHeader(const std::string& fileName, BITMAPFILEHEADER& fileHeader, BITMAPINFOHEADER& infoHeader) {
+    std::ifstream bitmap = BitmapRotate::openFile(fileName);
+
     if (!bitmap) {
         std::cerr << "Failed to open BMP file." << std::endl;
         return;
@@ -40,7 +42,9 @@ void BitmapRotate::parseHeader(std::ifstream& bitmap, BITMAPFILEHEADER& fileHead
     // Read the info header
     bitmap.read(reinterpret_cast<char*>(&infoHeader), sizeof(infoHeader));
 
-    printf("%s %u %s %u %s %u %s", "Size:", infoHeader.biSize, ",Width:", 
+    bitmap.close();
+
+    printf("%s %u %s %u %s %u %s", "Size:", infoHeader.biSizeImage, ",Width:", 
            infoHeader.biWidth, ",Height:", infoHeader.biHeight, "\n");
 }
 
@@ -54,20 +58,23 @@ std::pair<int, int> BitmapRotate::rotatePos(uint32_t x, uint32_t y, uint8_t rota
 }
 
 int BitmapRotate::run(const std::string& fileName) {
-    std::vector<Byte> bitmap;
+    // std::vector<Byte> bitmap;
     BITMAPFILEHEADER fileHeader;
     BITMAPINFOHEADER infoHeader;
 
-    std::ifstream bitmapFile = BitmapRotate::openFile(fileName);
-    BitmapRotate::readFile(bitmapFile, bitmap); // Maybe remove and just read directly from file
-    BitmapRotate::parseHeader(bitmapFile, fileHeader, infoHeader);
+    //BitmapRotate::readFile(bitmapFile, bitmap); // Maybe remove and just read directly from file
+    BitmapRotate::parseHeader(fileName, fileHeader, infoHeader);
 
-    if (fileHeader.bfType != 'BM') {
+    const uint16_t BMP_MAGIC_NUMBER = ('B' | ('M' << 8));
+    if (fileHeader.bfType != BMP_MAGIC_NUMBER) {
         std::cerr << "Header not correct, bitmap corrupt" << "\n";
         return 1;
     }
 
     bool hasAlpha = false;
+
+
+    std::ifstream bitmapFile = BitmapRotate::openFile(fileName);
 
     if (infoHeader.biBitCount == 32) {
         if (infoHeader.biCompression == 0 || infoHeader.biCompression == 3) {
@@ -99,6 +106,7 @@ int BitmapRotate::run(const std::string& fileName) {
         }
     }
 
+
     if (hasAlpha) {
         std::cout << "The BMP file has an alpha channel." << std::endl;
     } else {
@@ -114,9 +122,8 @@ int BitmapRotate::run(const std::string& fileName) {
     }
 
     // Write the header
-    for (int i = 0; i < fileHeader.bfOffBits; i++) {
-        newBmFile.put(bitmap[i]);
-    }
+    newBmFile.write(reinterpret_cast<char*>(&fileHeader), sizeof(fileHeader));
+    newBmFile.write(reinterpret_cast<char*>(&infoHeader), sizeof(infoHeader));
     
     // Plan
     // Create empty array, will become new file
@@ -139,10 +146,16 @@ int BitmapRotate::run(const std::string& fileName) {
             rotated2DPos = rotatePos(row, index, 90);
 
             pos += (infoHeader.biWidth * row) + index; 
-            newBmFile.put(bitmap[pos]);
+            bitmapFile.seekg(pos);
+            newBmFile.seekp(pos, std::ios::beg);
+            Byte byte;
+            bitmapFile.read(reinterpret_cast<char*>(&byte), sizeof(byte));
+            newBmFile.write(reinterpret_cast<const char*>(&byte), sizeof(byte));
         }
     }
 
+    bitmapFile.close();
+    newBmFile.close();
 
     return 0;
 
