@@ -16,40 +16,36 @@ void BitmapRotate::readFile(std::ifstream& bitmapFile, std::vector<Byte>& bitmap
     char byte;
 
     while (bitmapFile.get(byte)) {
-        bitmap.push_back(byte);        
+        bitmap.push_back(byte);
     }
 
     bitmapFile.close();
 }
 
-void BitmapRotate::parseHeader(const std::vector<Byte>& bitmap, BitmapHeader& bh) {
-    bh.headerField[0] = bitmap[0];
-    bh.headerField[1] = bitmap[1];
-
-    // Extract image size
-    for (int i = 2; i < 6; i++) { 
-        bh.size |= bitmap[i] << 8*(i-2);
+void BitmapRotate::parseHeader(std::ifstream& bitmap, BITMAPFILEHEADER& fileHeader, BITMAPINFOHEADER& infoHeader) {
+    if (!bitmap) {
+        std::cerr << "Failed to open BMP file." << std::endl;
+        return;
     }
 
-    // Extract where image data starts
-    for (int i = 10; i < 14; i++) {
-        bh.offset |= bitmap[i] << 8*(i-10);
+    // Read the file header
+    bitmap.read(reinterpret_cast<char*>(&fileHeader), sizeof(fileHeader));
+
+    // Verify that this is a BMP file by checking bitmap id
+    if (fileHeader.bfType != 0x4D42) { // 'BM' in little-endian
+        std::cerr << "Not a valid BMP file." << std::endl;
+        return;
     }
 
-    // Extract width of image
-    for (int i = 18; i < 22; i++) {
-        bh.width |= bitmap[i] << 8*(i-18);
-    }
+    // Read the info header
+    bitmap.read(reinterpret_cast<char*>(&infoHeader), sizeof(infoHeader));
 
-    // Extract height of image
-    for (int i = 22; i < 26; i++) {
-        bh.height |= bitmap[i] << 8*(i-22);
-    }
-
-    printf("%s %u %s %u %s %u %s", "Size:", bh.size, ",Width:", bh.width, ",Height:", bh.height, "\n");
+    printf("%s %u %s %u %s %u %s", "Size:", infoHeader.biSize, ",Width:", 
+           infoHeader.biWidth, ",Height:", infoHeader.biHeight, "\n");
 }
 
 int BitmapRotate::dimensionTransform(std::pair<int, int> coord) {
+    
     return 0;
 }
 
@@ -59,15 +55,54 @@ std::pair<int, int> BitmapRotate::rotatePos(uint32_t x, uint32_t y, uint8_t rota
 
 int BitmapRotate::run(const std::string& fileName) {
     std::vector<Byte> bitmap;
-    BitmapHeader bh;
+    BITMAPFILEHEADER fileHeader;
+    BITMAPINFOHEADER infoHeader;
 
     std::ifstream bitmapFile = BitmapRotate::openFile(fileName);
-    BitmapRotate::readFile(bitmapFile, bitmap);
-    BitmapRotate::parseHeader(bitmap, bh);
+    BitmapRotate::readFile(bitmapFile, bitmap); // Maybe remove and just read directly from file
+    BitmapRotate::parseHeader(bitmapFile, fileHeader, infoHeader);
 
-    if (bh.headerField[0] != 'B' && bh.headerField[1] != 'M') {
+    if (fileHeader.bfType != 'BM') {
         std::cerr << "Header not correct, bitmap corrupt" << "\n";
         return 1;
+    }
+
+    bool hasAlpha = false;
+
+    if (infoHeader.biBitCount == 32) {
+        if (infoHeader.biCompression == 0 || infoHeader.biCompression == 3) {
+            // Compression is BI_RGB (0) or BI_BITFIELDS (3)
+            if (infoHeader.biSize >= sizeof(BITMAPINFOHEADER)) {
+                uint32_t redMask = 0x00FF0000;
+                uint32_t greenMask = 0x0000FF00;
+                uint32_t blueMask = 0x000000FF;
+                uint32_t alphaMask = 0xFF000000;
+
+                if (infoHeader.biCompression == 3) {
+                    // Read color masks
+                    bitmapFile.read(reinterpret_cast<char*>(&redMask), sizeof(uint32_t));
+                    bitmapFile.read(reinterpret_cast<char*>(&greenMask), sizeof(uint32_t));
+                    bitmapFile.read(reinterpret_cast<char*>(&blueMask), sizeof(uint32_t));
+                    // For BITMAPV4HEADER and above, read alpha mask
+                    const uint32_t BITMAPV4HEADER_SIZE = 108;
+                    if (infoHeader.biSize >= BITMAPV4HEADER_SIZE) {
+                        bitmapFile.read(reinterpret_cast<char*>(&alphaMask), sizeof(uint32_t));
+                    } else {
+                        alphaMask = 0;
+                    }
+                }
+
+                if (alphaMask != 0) {
+                    hasAlpha = true;
+                }
+            }
+        }
+    }
+
+    if (hasAlpha) {
+        std::cout << "The BMP file has an alpha channel." << std::endl;
+    } else {
+        std::cout << "The BMP file does NOT have an alpha channel." << std::endl;
     }
 
     // Create completely black image test
@@ -79,7 +114,7 @@ int BitmapRotate::run(const std::string& fileName) {
     }
 
     // Write the header
-    for (int i = 0; i < bh.offset; i++) {
+    for (int i = 0; i < fileHeader.bfOffBits; i++) {
         newBmFile.put(bitmap[i]);
     }
     
@@ -97,13 +132,13 @@ int BitmapRotate::run(const std::string& fileName) {
     // [[1, 0, 0, 1], [0, 0, 0, 1], [0, 1, 1, 0], [1, 1, 1, 1]]
 
     // Write picture using 2D to 1D conversion
-    for (uint32_t row = 0; row < bh.height*3; row++) { // Why the fuck does height*3 produce the correct output??? Is bh.height parsed wrong? No, I print it and it's 420, which is the height... 
-        for (uint32_t index = 0; index < bh.width; index++) {
-            uint32_t pos = bh.offset;
+    for (uint32_t row = 0; row < infoHeader.biHeight*3; row++) {  // *3 because every pixel is made up of 3 bytes, one for R, G and B
+        for (uint32_t index = 0; index < infoHeader.biWidth; index++) {
+            uint32_t pos = fileHeader.bfOffBits;
             std::pair<int, int> rotated2DPos;
             rotated2DPos = rotatePos(row, index, 90);
 
-            pos += (bh.width * row) + index; 
+            pos += (infoHeader.biWidth * row) + index; 
             newBmFile.put(bitmap[pos]);
         }
     }
